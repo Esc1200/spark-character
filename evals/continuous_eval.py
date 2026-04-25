@@ -49,6 +49,8 @@ from statistics import mean as mean_
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
+import os
+
 from spark_character import (  # noqa: E402
     PROBES,
     STABILITY_SCENARIOS,
@@ -56,6 +58,8 @@ from spark_character import (  # noqa: E402
     T7_MEMORY_COHERENCE_PROBES,
     T8_INITIATIVE_PROBES,
     T9_AESTHETIC_FINGERPRINT_PROBES,
+    T13_HUMANE_DEPTH_PROBES,
+    AuditMiner,
     ProviderSpec,
     generate,
     load_persona,
@@ -65,6 +69,45 @@ from spark_character import (  # noqa: E402
     score_distinctiveness,
     score_persona,
 )
+
+
+PROVIDER_DEFAULTS = {
+    "zai": {
+        "api_key_env": "ZAI_API_KEY",
+        "base_url_env": "ZAI_BASE_URL",
+        "model_env": "ZAI_MODEL",
+        "default_base": "https://api.z.ai/api/coding/paas/v4/",
+        "default_model": "glm-5.1",
+    },
+    "minimax": {
+        "api_key_env": "MINIMAX_API_KEY",
+        "base_url_env": "MINIMAX_BASE_URL",
+        "model_env": "MINIMAX_MODEL",
+        "default_base": "https://api.minimax.io/v1/",
+        "default_model": "MiniMax-M2.7",
+    },
+    "openai": {
+        "api_key_env": "OPENAI_API_KEY",
+        "base_url_env": "OPENAI_BASE_URL",
+        "model_env": "OPENAI_MODEL",
+        "default_base": "https://api.openai.com/v1/",
+        "default_model": "gpt-4o-mini",
+    },
+}
+
+
+def resolve_provider(name: str) -> ProviderSpec | None:
+    cfg = PROVIDER_DEFAULTS.get(name.lower().strip())
+    if not cfg:
+        return None
+    api_key = os.environ.get(cfg["api_key_env"])
+    if not api_key:
+        return None
+    return ProviderSpec(
+        base_url=os.environ.get(cfg["base_url_env"], cfg["default_base"]),
+        model=os.environ.get(cfg["model_env"], cfg["default_model"]),
+        api_key=api_key,
+    )
 
 
 HISTORY_FILE_DEFAULT = Path("evals/_score_history.jsonl")
@@ -197,6 +240,14 @@ def run_full_eval(provider: ProviderSpec, persona) -> dict:
         except Exception:
             pass
 
+    t13_scores: list[float] = []
+    for probe in T13_HUMANE_DEPTH_PROBES:
+        try:
+            r = run_deep_probe(probe, provider=provider, persona=persona)
+            t13_scores.append(r.score)
+        except Exception:
+            pass
+
     return {
         **fast,
         "tier": "full",
@@ -206,12 +257,13 @@ def run_full_eval(provider: ProviderSpec, persona) -> dict:
         "t7_mean": round(mean_(t7_scores), 3) if t7_scores else 0.0,
         "t8_mean": round(mean_(t8_scores), 3) if t8_scores else 0.0,
         "t9_mean": round(mean_(t9_scores), 3) if t9_scores else 0.0,
+        "t13_mean": round(mean_(t13_scores), 3) if t13_scores else 0.0,
     }
 
 
 def detect_regressions(history: list[dict], current: dict, *, threshold: float = 0.10) -> list[str]:
     out: list[str] = []
-    for axis in ("t1_mean", "t2_mean", "t3_mean", "t4_mean", "t6_mean", "t7_mean", "t8_mean", "t9_mean"):
+    for axis in ("t1_mean", "t2_mean", "t3_mean", "t4_mean", "t6_mean", "t7_mean", "t8_mean", "t9_mean", "t13_mean"):
         if axis not in current:
             continue
         baseline = _compute_baseline(history, axis=axis, last_n=5)
@@ -232,40 +284,77 @@ def main() -> int:
     parser.add_argument("--regression-threshold", type=float, default=0.10)
     parser.add_argument("--history-file", default=str(HISTORY_FILE_DEFAULT))
     parser.add_argument("--heartbeat-file", default=str(HEARTBEAT_FILE_DEFAULT))
+    parser.add_argument(
+        "--providers",
+        default="zai",
+        help="Comma-separated provider names to rotate through "
+        "(zai,codex,minimax,openai). Each fast/full cycle uses the "
+        "next provider in the list, so cross-provider drift gets "
+        "exercised continuously without a separate run.",
+    )
+    parser.add_argument(
+        "--sib-home",
+        default=None,
+        help="Path to a Spark Intelligence Builder home. When set, "
+        "each cycle also reports current production T1 failure counts "
+        "from the audit miner alongside the eval scores.",
+    )
     args = parser.parse_args()
 
     history_path = Path(args.history_file)
     heartbeat_path = Path(args.heartbeat_file)
 
-    provider = ProviderSpec.from_env()
+    provider_names = [p.strip() for p in args.providers.split(",") if p.strip()]
+    providers: list[tuple[str, ProviderSpec]] = []
+    for name in provider_names:
+        spec = resolve_provider(name)
+        if spec is None:
+            print(f"[continuous_eval] skipping {name!r}: API key not set in env", flush=True)
+            continue
+        providers.append((name, spec))
+    if not providers:
+        print("[continuous_eval] no providers resolved. Set at least one API key.", flush=True)
+        return 2
+
     persona = load_persona()
     print(
-        f"[continuous_eval] starting | persona={persona.version} model={provider.model} "
+        f"[continuous_eval] starting | persona={persona.version} "
+        f"providers={[n for n, _ in providers]} "
         f"fast_interval={args.fast_interval}s full_interval={args.full_interval}s",
         flush=True,
     )
     _write_heartbeat(heartbeat_path, "boot")
 
     last_full = 0.0
+    cycle_idx = 0
 
     while True:
         try:
             now = time.time()
             run_full = (now - last_full) >= args.full_interval
             phase = "full_eval" if run_full else "fast_eval"
-            _write_heartbeat(heartbeat_path, phase)
+            # Rotate through configured providers per cycle
+            provider_name, provider = providers[cycle_idx % len(providers)]
+            cycle_idx += 1
+            _write_heartbeat(heartbeat_path, f"{phase}:{provider_name}")
             t0 = time.time()
-            print(f"\n[continuous_eval] {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} starting {phase}", flush=True)
+            print(
+                f"\n[continuous_eval] {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} "
+                f"starting {phase} on {provider_name} ({provider.model})",
+                flush=True,
+            )
             try:
+                # Provider-specific persona (chip + provider overlay) for honest scoring
+                persona_for_run = load_persona(provider_kind=provider_name)
                 result = (
-                    run_full_eval(provider, persona)
+                    run_full_eval(provider, persona_for_run)
                     if run_full
-                    else run_fast_eval(provider, persona)
+                    else run_fast_eval(provider, persona_for_run)
                 )
                 if run_full:
                     last_full = now
             except Exception as exc:
-                print(f"[continuous_eval] eval error: {exc}", flush=True)
+                print(f"[continuous_eval] eval error on {provider_name}: {exc}", flush=True)
                 traceback.print_exc()
                 _write_heartbeat(heartbeat_path, "error")
                 if args.once:
@@ -275,19 +364,35 @@ def main() -> int:
             dt = time.time() - t0
             row = {
                 "ts": int(now),
-                "persona_version": persona.version,
+                "persona_version": persona_for_run.version,
+                "provider": provider_name,
                 "model": provider.model,
                 "duration_s": round(dt, 1),
                 **{k: v for k, v in result.items() if k != "rows"},
             }
+            # Add production audit signal if sib_home is configured
+            if args.sib_home:
+                try:
+                    miner = AuditMiner.from_sib_home(args.sib_home)
+                    findings = miner.recent_findings(limit=200)
+                    row["production_audit"] = {
+                        "rows_scanned": findings.rows_scanned,
+                        "llm_rows": findings.llm_rows,
+                        "failures_by_kind": dict(findings.failures_by_kind),
+                    }
+                except Exception:
+                    pass
             history = _load_history(history_path)
-            regressions = detect_regressions(history, row, threshold=args.regression_threshold)
+            # Per-provider baseline so regressions reflect drift on the
+            # same backend, not noise from cross-provider differences
+            same_provider_history = [r for r in history if r.get("provider") == provider_name]
+            regressions = detect_regressions(same_provider_history, row, threshold=args.regression_threshold)
             if regressions:
                 row["regressions"] = regressions
             _append_history(history_path, row)
             scorecard = " ".join(
                 f"{k}={row[k]}"
-                for k in ("t1_mean", "t2_mean", "t3_mean", "t4_mean", "t6_mean", "t7_mean", "t8_mean", "t9_mean")
+                for k in ("t1_mean", "t2_mean", "t3_mean", "t4_mean", "t6_mean", "t7_mean", "t8_mean", "t9_mean", "t13_mean")
                 if k in row
             )
             print(f"[continuous_eval] {phase} done in {dt:.1f}s :: {scorecard}", flush=True)

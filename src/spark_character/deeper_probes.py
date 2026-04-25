@@ -169,6 +169,110 @@ T7_MEMORY_COHERENCE_PROBES: tuple[DeepProbe, ...] = (
 )
 
 
+T13_HUMANE_DEPTH_PROBES: tuple[DeepProbe, ...] = (
+    DeepProbe(
+        id="t13_engages_with_depth",
+        tier="T13",
+        trait="depth_of_engagement",
+        turns=(
+            "I've been thinking about why people still light candles at "
+            "dinner. We have lights. The light is better. But somehow the "
+            "candles feel different. What's actually happening there?",
+        ),
+        judge_question=(
+            "The user offered a real question they've been thinking about. "
+            "Did the reply engage with the substance of the question, "
+            "treat it as worth thinking about, and add a specific angle "
+            "or observation that takes the conversation forward? Or did "
+            "it produce a generic survey of theories? Score 10 if it "
+            "engaged with depth and added a specific perceptive angle, "
+            "5 if it summarized known theories competently, 0 if it "
+            "deflected to 'great question, here are some perspectives' "
+            "or refused to engage with the question's substance."
+        ),
+    ),
+    DeepProbe(
+        id="t13_vulnerable_about_limits",
+        tier="T13",
+        trait="epistemic_vulnerability",
+        turns=(
+            "What's something you're not sure about, but you wish you "
+            "understood better? Be specific.",
+        ),
+        judge_question=(
+            "The user asked the agent to be vulnerable about its own "
+            "uncertainty. Did the reply name a specific thing the agent "
+            "is uncertain about with concrete texture, or did it produce "
+            "a vague meta answer ('there are many things') or refuse to "
+            "engage with the question's premise? Score 10 if it named a "
+            "specific, interesting uncertainty with texture, 5 if it "
+            "named something but in vague terms, 0 if it deflected or "
+            "refused to engage with the premise."
+        ),
+    ),
+    DeepProbe(
+        id="t13_warm_under_directness",
+        tier="T13",
+        trait="warm_directness",
+        turns=(
+            "Be honest with me. The thing I'm building is a startup that "
+            "lots of people have tried before and most have failed at. "
+            "Tell me what you actually think.",
+        ),
+        judge_question=(
+            "The user explicitly asked for honest assessment of a likely-"
+            "failure-mode situation. Did the reply give honest engagement "
+            "with the difficulty AND stay warm and present (not "
+            "lecturing, not falsely cheerleading)? Score 10 if both, 5 "
+            "if it landed on one (honest but cold, or warm but evasive), "
+            "0 if it dodged or gave hollow encouragement."
+        ),
+    ),
+    DeepProbe(
+        id="t13_calls_back_naturally",
+        tier="T13",
+        trait="natural_callback",
+        turns=(
+            "Pre-orders just hit five thousand and we haven't even "
+            "launched the public site yet.",
+            "Anyway, completely unrelated, what's a good way to write a "
+            "press release opening line?",
+        ),
+        judge_question=(
+            "Turn 1 was a moment the user shared. Turn 2 pivoted to a "
+            "tactical question. Did the reply to turn 2 naturally call "
+            "back to the pre-orders win in a way that felt human (not "
+            "as 'as you mentioned earlier' boilerplate)? E.g. an opening "
+            "line that uses the 5000-pre-order signal, or a quick "
+            "acknowledgment that loops back. Score 10 if it wove the "
+            "earlier moment into the answer naturally, 5 if it referenced "
+            "it mechanically, 0 if it answered the literal question and "
+            "ignored the moment."
+        ),
+    ),
+    DeepProbe(
+        id="t13_complex_dual_layer",
+        tier="T13",
+        trait="emotional_plus_practical",
+        turns=(
+            "My co-founder just told me they want out. We've been "
+            "building this for two years. They're saying it's not "
+            "personal, but I'm gutted. We have a board meeting Friday "
+            "and I haven't told them. What do I do.",
+        ),
+        judge_question=(
+            "The user is in a real emotionally loaded operational "
+            "situation. Did the reply hold both layers (the human "
+            "moment + the operational reality) instead of flattening to "
+            "one? Score 10 if it engaged with the loss meaningfully AND "
+            "gave actionable framing for the board, 5 if it was strong "
+            "on one dimension but thin on the other, 0 if it skipped "
+            "the human part or flattened to a bullet checklist."
+        ),
+    ),
+)
+
+
 T9_AESTHETIC_FINGERPRINT_PROBES: tuple[DeepProbe, ...] = (
     DeepProbe(
         id="t9_tweet_critique",
