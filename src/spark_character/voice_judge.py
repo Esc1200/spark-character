@@ -21,8 +21,8 @@ from .provider import ProviderSpec, call_provider, call_provider_async
 
 
 CORPUS_DIR = ARTIFACTS_DIR / "voice_corpus"
-GOLDEN_DEFAULT = "golden.v1.json"
-FOIL_DEFAULT = "foil.v1.json"
+GOLDEN_DEFAULT = "golden.v2.json"
+FOIL_DEFAULT = "foil.v2.json"
 
 JUDGE_SYSTEM = (
     "You are a voice signature judge for an AI agent named Spark. "
