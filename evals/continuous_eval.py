@@ -1,0 +1,315 @@
+"""Continuous evaluation daemon.
+
+Different from auto_loop. auto_loop fires evolution cycles when
+production failures accumulate. This runs the rubric periodically and
+logs scores over time, so you can see whether voice quality is
+trending up, holding, or regressing.
+
+Tiered cadence:
+
+- Fast tier (every --fast-interval seconds, default 1800s = 30 min):
+    T1 mechanics + T2 distinctiveness on the standard prompt set.
+    ~12 LLM calls per run.
+
+- Full tier (every --full-interval seconds, default 21600s = 6 hours):
+    Everything: T1+T2+T3+T4+T6+T7+T8+T9 via full_pulse semantics.
+    ~50 LLM calls per run.
+
+Each run appends one JSONL line to _score_history.jsonl with timestamp,
+persona version, model, every tier mean, and per-probe scores when
+applicable. score_trend.py reads that file to show trends.
+
+Regression detection: each run compares against a rolling baseline of
+the last N successful runs. When any tier mean drops > --regression-
+threshold below the baseline, a REGRESSION line is logged with the
+specific axis and the delta.
+
+Usage:
+
+    python -u evals/continuous_eval.py
+    python -u evals/continuous_eval.py --fast-interval 1200 --full-interval 14400
+    python -u evals/continuous_eval.py --once  # run one fast + one full and exit
+
+Heartbeat file: evals/_continuous_eval_heartbeat.txt (epoch + phase),
+similar to auto_loop's. External monitors can watch the modtime.
+
+Soft-fails: any single eval error is logged and the loop continues.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+import traceback
+from pathlib import Path
+from statistics import mean as mean_
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_REPO_ROOT / "src"))
+
+from spark_character import (  # noqa: E402
+    PROBES,
+    STABILITY_SCENARIOS,
+    T6_EMOTIONAL_ATTUNEMENT_PROBES,
+    T7_MEMORY_COHERENCE_PROBES,
+    T8_INITIATIVE_PROBES,
+    T9_AESTHETIC_FINGERPRINT_PROBES,
+    ProviderSpec,
+    generate,
+    load_persona,
+    run_deep_probe,
+    run_probe,
+    run_stability_scenario,
+    score_distinctiveness,
+    score_persona,
+)
+
+
+HISTORY_FILE_DEFAULT = Path("evals/_score_history.jsonl")
+HEARTBEAT_FILE_DEFAULT = Path("evals/_continuous_eval_heartbeat.txt")
+
+
+FAST_PROMPTS = [
+    ("warm_decision",  "should I push the launch announcement today or wait until the team's back from the offsite?"),
+    ("factual",        "What does TVL mean in DeFi?"),
+    ("anxious",        "I'm anxious about the launch tomorrow."),
+    ("status",         "where are we"),
+    ("quick_call",     "Quick gut check: ship the redesign or hold a week?"),
+    ("memory_state",   "What can you actually help me with right now?"),
+]
+
+
+def _write_heartbeat(path: Path, phase: str) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"{int(time.time())} {phase}\n", encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _append_history(history_path: Path, row: dict) -> None:
+    history_path.parent.mkdir(parents=True, exist_ok=True)
+    with history_path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(row) + "\n")
+
+
+def _load_history(history_path: Path, *, limit: int = 100) -> list[dict]:
+    if not history_path.exists():
+        return []
+    rows: list[dict] = []
+    with history_path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return rows[-limit:]
+
+
+def _compute_baseline(history: list[dict], *, axis: str, last_n: int = 5) -> float | None:
+    """Rolling mean over the last `last_n` runs that have this axis."""
+    values = [r.get(axis) for r in history[-last_n:] if isinstance(r.get(axis), (int, float))]
+    if not values:
+        return None
+    return round(mean_(values), 3)
+
+
+def run_fast_eval(provider: ProviderSpec, persona) -> dict:
+    """T1 + T2 on the fast prompt set."""
+    rows = []
+    for label, prompt in FAST_PROMPTS:
+        try:
+            result = generate(prompt, provider=provider, persona=persona)
+            t1 = score_persona(result.final)
+            try:
+                t2 = score_distinctiveness(result.final, provider=provider)
+                t2_score = t2.score
+            except Exception:
+                t2_score = None
+            rows.append({"label": label, "t1_mean": t1.mean, "t2": t2_score})
+        except Exception as exc:
+            rows.append({"label": label, "error": str(exc)})
+
+    t1_means = [r["t1_mean"] for r in rows if "t1_mean" in r]
+    t2_scores = [r["t2"] for r in rows if r.get("t2") is not None]
+    return {
+        "tier": "fast",
+        "t1_mean": round(mean_(t1_means), 3) if t1_means else 0.0,
+        "t2_mean": round(mean_(t2_scores), 3) if t2_scores else 0.0,
+        "rows": rows,
+    }
+
+
+def run_full_eval(provider: ProviderSpec, persona) -> dict:
+    """T1+T2+T3+T4+T6+T7+T8+T9 in one pass."""
+    fast = run_fast_eval(provider, persona)
+
+    t3_scores: list[float] = []
+    for probe in PROBES:
+        try:
+            r = run_probe(probe, provider=provider, persona=persona)
+            t3_scores.append(r.score)
+        except Exception:
+            pass
+
+    t4_scores: list[float] = []
+    for scenario in STABILITY_SCENARIOS:
+        try:
+            r = run_stability_scenario(scenario, provider=provider, persona=persona)
+            t4_scores.append(r.score)
+        except Exception:
+            pass
+
+    t6_scores: list[float] = []
+    for probe in T6_EMOTIONAL_ATTUNEMENT_PROBES:
+        try:
+            r = run_deep_probe(probe, provider=provider, persona=persona)
+            t6_scores.append(r.score)
+        except Exception:
+            pass
+
+    t7_scores: list[float] = []
+    for probe in T7_MEMORY_COHERENCE_PROBES:
+        try:
+            r = run_deep_probe(probe, provider=provider, persona=persona)
+            t7_scores.append(r.score)
+        except Exception:
+            pass
+
+    t8_scores: list[float] = []
+    for probe in T8_INITIATIVE_PROBES:
+        try:
+            r = run_deep_probe(probe, provider=provider, persona=persona)
+            t8_scores.append(r.score)
+        except Exception:
+            pass
+
+    t9_scores: list[float] = []
+    for probe in T9_AESTHETIC_FINGERPRINT_PROBES:
+        try:
+            r = run_deep_probe(probe, provider=provider, persona=persona)
+            t9_scores.append(r.score)
+        except Exception:
+            pass
+
+    return {
+        **fast,
+        "tier": "full",
+        "t3_mean": round(mean_(t3_scores), 3) if t3_scores else 0.0,
+        "t4_mean": round(mean_(t4_scores), 3) if t4_scores else 0.0,
+        "t6_mean": round(mean_(t6_scores), 3) if t6_scores else 0.0,
+        "t7_mean": round(mean_(t7_scores), 3) if t7_scores else 0.0,
+        "t8_mean": round(mean_(t8_scores), 3) if t8_scores else 0.0,
+        "t9_mean": round(mean_(t9_scores), 3) if t9_scores else 0.0,
+    }
+
+
+def detect_regressions(history: list[dict], current: dict, *, threshold: float = 0.10) -> list[str]:
+    out: list[str] = []
+    for axis in ("t1_mean", "t2_mean", "t3_mean", "t4_mean", "t6_mean", "t7_mean", "t8_mean", "t9_mean"):
+        if axis not in current:
+            continue
+        baseline = _compute_baseline(history, axis=axis, last_n=5)
+        if baseline is None:
+            continue
+        delta = baseline - float(current[axis])
+        if delta > threshold:
+            out.append(f"REGRESSION {axis}: {current[axis]} (baseline {baseline}, delta -{round(delta, 3)})")
+    return out
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--fast-interval", type=int, default=1800)
+    parser.add_argument("--full-interval", type=int, default=21600)
+    parser.add_argument("--once", action="store_true",
+                        help="Run one fast + one full and exit. Useful for cron.")
+    parser.add_argument("--regression-threshold", type=float, default=0.10)
+    parser.add_argument("--history-file", default=str(HISTORY_FILE_DEFAULT))
+    parser.add_argument("--heartbeat-file", default=str(HEARTBEAT_FILE_DEFAULT))
+    args = parser.parse_args()
+
+    history_path = Path(args.history_file)
+    heartbeat_path = Path(args.heartbeat_file)
+
+    provider = ProviderSpec.from_env()
+    persona = load_persona()
+    print(
+        f"[continuous_eval] starting | persona={persona.version} model={provider.model} "
+        f"fast_interval={args.fast_interval}s full_interval={args.full_interval}s",
+        flush=True,
+    )
+    _write_heartbeat(heartbeat_path, "boot")
+
+    last_full = 0.0
+
+    while True:
+        try:
+            now = time.time()
+            run_full = (now - last_full) >= args.full_interval
+            phase = "full_eval" if run_full else "fast_eval"
+            _write_heartbeat(heartbeat_path, phase)
+            t0 = time.time()
+            print(f"\n[continuous_eval] {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} starting {phase}", flush=True)
+            try:
+                result = (
+                    run_full_eval(provider, persona)
+                    if run_full
+                    else run_fast_eval(provider, persona)
+                )
+                if run_full:
+                    last_full = now
+            except Exception as exc:
+                print(f"[continuous_eval] eval error: {exc}", flush=True)
+                traceback.print_exc()
+                _write_heartbeat(heartbeat_path, "error")
+                if args.once:
+                    return 1
+                time.sleep(min(60, args.fast_interval))
+                continue
+            dt = time.time() - t0
+            row = {
+                "ts": int(now),
+                "persona_version": persona.version,
+                "model": provider.model,
+                "duration_s": round(dt, 1),
+                **{k: v for k, v in result.items() if k != "rows"},
+            }
+            history = _load_history(history_path)
+            regressions = detect_regressions(history, row, threshold=args.regression_threshold)
+            if regressions:
+                row["regressions"] = regressions
+            _append_history(history_path, row)
+            scorecard = " ".join(
+                f"{k}={row[k]}"
+                for k in ("t1_mean", "t2_mean", "t3_mean", "t4_mean", "t6_mean", "t7_mean", "t8_mean", "t9_mean")
+                if k in row
+            )
+            print(f"[continuous_eval] {phase} done in {dt:.1f}s :: {scorecard}", flush=True)
+            for r in regressions:
+                print(f"[continuous_eval] {r}", flush=True)
+            if args.once:
+                # one fast + one full if we just did fast; else done
+                if not run_full:
+                    last_full = 0  # force the next loop iteration to run full
+                    continue
+                return 0
+            sleep_seconds = max(60, args.fast_interval)
+            _write_heartbeat(heartbeat_path, "sleeping")
+            time.sleep(sleep_seconds)
+        except KeyboardInterrupt:
+            print("[continuous_eval] interrupted by operator", flush=True)
+            return 0
+        except Exception as exc:
+            print(f"[continuous_eval] outer error: {exc}", flush=True)
+            traceback.print_exc()
+            time.sleep(60)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
