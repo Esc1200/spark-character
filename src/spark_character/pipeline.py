@@ -43,7 +43,13 @@ def generate(
     history: list[dict[str, str]] | None = None,
     max_tokens: int = 600,
     temperature: float = 0.7,
+    disable_thinking: bool = True,
 ) -> GenerationResult:
+    """Generate a Spark reply. disable_thinking defaults to True so the
+    reasoning phase of reasoning models (GLM 5.1, o1-style) does not
+    leak structured "1. Analyze the Request" prefixes into the visible
+    output when the token budget is tight. Pass False if you want the
+    model to think aloud (only meaningful for some backends)."""
     p = persona or load_persona()
     draft = call_provider(
         provider=provider,
@@ -52,6 +58,7 @@ def generate(
         max_tokens=max_tokens,
         temperature=temperature,
         extra_messages=history,
+        disable_thinking=disable_thinking,
     )
     return GenerationResult(
         final=draft,
@@ -72,6 +79,7 @@ def generate_with_critique(
     max_tokens: int = 600,
     temperature: float = 0.7,
     always_critique: bool = False,
+    disable_thinking: bool = True,
 ) -> GenerationResult:
     """Generate, then run the critic only if the local scorers flag a
     persona violation in the draft. Set always_critique=True to bypass
@@ -85,6 +93,7 @@ def generate_with_critique(
         max_tokens=max_tokens,
         temperature=temperature,
         extra_messages=history,
+        disable_thinking=disable_thinking,
     )
     if not always_critique and score_persona(draft).passed:
         return GenerationResult(
@@ -115,6 +124,7 @@ async def generate_async(
     history: list[dict[str, str]] | None = None,
     max_tokens: int = 600,
     temperature: float = 0.7,
+    disable_thinking: bool = True,
 ) -> GenerationResult:
     p = persona or load_persona()
     draft = await call_provider_async(
@@ -124,6 +134,7 @@ async def generate_async(
         max_tokens=max_tokens,
         temperature=temperature,
         extra_messages=history,
+        disable_thinking=disable_thinking,
     )
     return GenerationResult(
         final=draft,
@@ -144,6 +155,7 @@ async def generate_with_critique_async(
     max_tokens: int = 600,
     temperature: float = 0.7,
     always_critique: bool = False,
+    disable_thinking: bool = True,
 ) -> GenerationResult:
     p = persona or load_persona()
     c = critic or load_critic()
@@ -154,6 +166,7 @@ async def generate_with_critique_async(
         max_tokens=max_tokens,
         temperature=temperature,
         extra_messages=history,
+        disable_thinking=disable_thinking,
     )
     if not always_critique and score_persona(draft).passed:
         return GenerationResult(
