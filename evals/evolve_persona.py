@@ -38,11 +38,15 @@ sys.path.insert(0, str(_REPO_ROOT / "src"))
 
 from spark_character import (  # noqa: E402
     PROBES,
+    T6_EMOTIONAL_ATTUNEMENT_PROBES,
+    T7_MEMORY_COHERENCE_PROBES,
+    T8_INITIATIVE_PROBES,
     AuditMiner,
     PersonaSpec,
     ProviderSpec,
     call_provider,
     generate,
+    run_deep_probe,
     run_probe,
     score_distinctiveness,
     score_persona,
@@ -86,6 +90,23 @@ MUTATOR_SYSTEM = (
 )
 
 
+def _format_score_line(label: str, scores: dict, comp: float, elapsed: float | None = None) -> str:
+    parts = [
+        f"T1={scores['t1_mean']}",
+        f"T2={scores['t2_mean']}",
+        f"T3={scores['t3_mean']}",
+    ]
+    if scores.get("deeper_included"):
+        parts.extend([
+            f"T6={scores['t6_mean']}",
+            f"T7={scores['t7_mean']}",
+            f"T8={scores['t8_mean']}",
+        ])
+    parts.append(f"composite={comp}")
+    suffix = f" in {elapsed:.1f}s" if elapsed is not None else ""
+    return f"[{label}] {' '.join(parts)}{suffix}\n"
+
+
 def find_latest_persona() -> tuple[int, PersonaSpec]:
     versions = []
     for path in ARTIFACTS_DIR.glob("persona.v*.md"):
@@ -100,14 +121,30 @@ def find_latest_persona() -> tuple[int, PersonaSpec]:
     return n, PersonaSpec(version=f"v{n}", text=text)
 
 
-def score_all_tiers(provider: ProviderSpec, persona: PersonaSpec) -> dict:
-    """Run T1+T2 over PROMPTS and T3 over PROBES. Returns aggregated dict."""
+def score_all_tiers(
+    provider: ProviderSpec,
+    persona: PersonaSpec,
+    *,
+    include_deeper: bool = False,
+) -> dict:
+    """Run T1+T2 over PROMPTS and T3 over PROBES. Returns aggregated dict.
+
+    When include_deeper=True, also runs T6 emotional attunement,
+    T7 memory coherence, and T8 initiative probes. ~3x more LLM
+    calls per persona scored.
+    """
     t1_means: list[float] = []
     t2_scores: list[float] = []
     t3_scores: list[float] = []
+    t6_scores: list[float] = []
+    t7_scores: list[float] = []
+    t8_scores: list[float] = []
     failures_t1: list[str] = []
     failures_t2: list[tuple[str, float, str]] = []
     failures_t3: list[tuple[str, float]] = []
+    failures_t6: list[tuple[str, float]] = []
+    failures_t7: list[tuple[str, float]] = []
+    failures_t8: list[tuple[str, float]] = []
 
     for prompt in PROMPTS:
         try:
@@ -141,32 +178,83 @@ def score_all_tiers(provider: ProviderSpec, persona: PersonaSpec) -> dict:
         except Exception:
             pass
 
+    if include_deeper:
+        for probe in T6_EMOTIONAL_ATTUNEMENT_PROBES:
+            try:
+                r = run_deep_probe(probe, provider=provider, persona=persona)
+                t6_scores.append(r.score)
+                if r.score < 0.8:
+                    failures_t6.append((probe.id, r.score))
+            except Exception:
+                pass
+        for probe in T7_MEMORY_COHERENCE_PROBES:
+            try:
+                r = run_deep_probe(probe, provider=provider, persona=persona)
+                t7_scores.append(r.score)
+                if r.score < 0.8:
+                    failures_t7.append((probe.id, r.score))
+            except Exception:
+                pass
+        for probe in T8_INITIATIVE_PROBES:
+            try:
+                r = run_deep_probe(probe, provider=provider, persona=persona)
+                t8_scores.append(r.score)
+                if r.score < 0.8:
+                    failures_t8.append((probe.id, r.score))
+            except Exception:
+                pass
+
     return {
         "t1_mean": round(mean_(t1_means), 3) if t1_means else 0.0,
         "t2_mean": round(mean_(t2_scores), 3) if t2_scores else 0.0,
         "t3_mean": round(mean_(t3_scores), 3) if t3_scores else 0.0,
+        "t6_mean": round(mean_(t6_scores), 3) if t6_scores else 0.0,
+        "t7_mean": round(mean_(t7_scores), 3) if t7_scores else 0.0,
+        "t8_mean": round(mean_(t8_scores), 3) if t8_scores else 0.0,
         "failures_t1": failures_t1,
         "failures_t2": failures_t2,
         "failures_t3": failures_t3,
+        "failures_t6": failures_t6,
+        "failures_t7": failures_t7,
+        "failures_t8": failures_t8,
+        "deeper_included": bool(include_deeper),
     }
 
 
-def composite(scores: dict, weights: tuple[float, float, float]) -> float:
-    w1, w2, w3 = weights
-    return round(w1 * scores["t1_mean"] + w2 * scores["t2_mean"] + w3 * scores["t3_mean"], 3)
+def composite(scores: dict, weights: tuple[float, ...]) -> float:
+    """Composite fitness. weights is a 3- or 6-tuple:
+    (T1, T2, T3) or (T1, T2, T3, T6, T7, T8)."""
+    w = list(weights) + [0.0] * 6
+    keys = ("t1_mean", "t2_mean", "t3_mean", "t6_mean", "t7_mean", "t8_mean")
+    return round(sum(w[i] * scores.get(keys[i], 0.0) for i in range(6)), 3)
 
 
 def diagnose(scores: dict) -> list[str]:
     out: list[str] = []
-    for f in scores["failures_t1"][:3]:
+    for f in scores.get("failures_t1", [])[:3]:
         out.append(f"T1 mechanics: {f}")
-    for prompt, t2, preview in scores["failures_t2"][:4]:
+    for prompt, t2, preview in scores.get("failures_t2", [])[:4]:
         out.append(
             f"T2 distinctiveness only {t2} on prompt {prompt!r}. "
             f"Reply opened: {preview[:140]!r}. Make it sharper, more decisive, less hedged."
         )
-    for probe_id, t3 in scores["failures_t3"][:3]:
+    for probe_id, t3 in scores.get("failures_t3", [])[:3]:
         out.append(f"T3 trait probe {probe_id} only {t3}. Strengthen the behavioral cue in the spec.")
+    for probe_id, t6 in scores.get("failures_t6", [])[:3]:
+        out.append(
+            f"T6 emotional attunement probe {probe_id} only {t6}. "
+            f"The spec is not pulling Spark to engage with the emotional state strongly enough."
+        )
+    for probe_id, t7 in scores.get("failures_t7", [])[:3]:
+        out.append(
+            f"T7 memory coherence probe {probe_id} only {t7}. "
+            f"Spark is not acting on facts the user stated earlier in the conversation."
+        )
+    for probe_id, t8 in scores.get("failures_t8", [])[:3]:
+        out.append(
+            f"T8 initiative probe {probe_id} only {t8}. "
+            f"Spark is answering the literal question but missing the buried implicit signal the user did not ask about."
+        )
     if not out:
         out.append("No specific failures. Push for sharper warmth, more memorable phrasing, less filler.")
     return out
@@ -192,7 +280,14 @@ def mutate_persona(provider: ProviderSpec, baseline: PersonaSpec, weaknesses: li
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--candidates", type=int, default=3)
-    parser.add_argument("--weights", default="0.2,0.5,0.3", help="T1,T2,T3 weights for composite fitness")
+    parser.add_argument("--weights", default="0.2,0.5,0.3", help="Comma-separated weights. 3 floats T1,T2,T3 or 6 floats T1,T2,T3,T6,T7,T8.")
+    parser.add_argument(
+        "--include-deeper",
+        action="store_true",
+        help="Also score T6 emotional attunement, T7 memory coherence, and "
+        "T8 initiative probes during evolution. Triples LLM cost per cycle "
+        "but lets the mutator target deeper trait gaps.",
+    )
     parser.add_argument("--floor-drop", type=float, default=0.05, help="Max allowed regression on any single axis")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--out", default="evals/_evolve_persona_last.json")
@@ -214,21 +309,19 @@ def main() -> int:
     args = parser.parse_args()
 
     weights = tuple(float(x) for x in args.weights.split(","))
-    if len(weights) != 3:
-        raise SystemExit("weights must be 3 floats: T1,T2,T3")
+    if len(weights) not in (3, 6):
+        raise SystemExit("weights must be 3 floats (T1,T2,T3) or 6 floats (T1,T2,T3,T6,T7,T8)")
 
     provider = ProviderSpec.from_env()
     n, baseline = find_latest_persona()
     print(f"\n=== persona evolution (multi-tier) | baseline=v{n} | candidates={args.candidates} | weights={weights} ===\n")
 
-    print(f"[baseline v{n}] scoring T1+T2+T3...")
+    tier_label = "T1+T2+T3+T6+T7+T8" if args.include_deeper else "T1+T2+T3"
+    print(f"[baseline v{n}] scoring {tier_label}...")
     t0 = time.time()
-    baseline_scores = score_all_tiers(provider, baseline)
+    baseline_scores = score_all_tiers(provider, baseline, include_deeper=args.include_deeper)
     baseline_composite = composite(baseline_scores, weights)
-    print(
-        f"[baseline v{n}] T1={baseline_scores['t1_mean']} T2={baseline_scores['t2_mean']} "
-        f"T3={baseline_scores['t3_mean']} composite={baseline_composite} in {time.time() - t0:.1f}s\n"
-    )
+    print(_format_score_line(f"baseline v{n}", baseline_scores, baseline_composite, time.time() - t0))
 
     weaknesses = diagnose(baseline_scores)
 
@@ -258,36 +351,29 @@ def main() -> int:
         try:
             text = mutate_persona(provider, baseline, weaknesses)
             cand = PersonaSpec(version=f"cand-{i + 1}", text=text)
-            scores = score_all_tiers(provider, cand)
+            scores = score_all_tiers(provider, cand, include_deeper=args.include_deeper)
             comp = composite(scores, weights)
             candidates.append({"index": i + 1, "text": text, "scores": scores, "composite": comp})
-            print(
-                f"[candidate {i + 1}] T1={scores['t1_mean']} T2={scores['t2_mean']} "
-                f"T3={scores['t3_mean']} composite={comp} in {time.time() - t0:.1f}s\n"
-            )
+            print(_format_score_line(f"candidate {i + 1}", scores, comp, time.time() - t0))
         except Exception as exc:
             print(f"[candidate {i + 1}] ERROR: {exc}\n")
 
     candidates.sort(key=lambda c: c["composite"], reverse=True)
     print("=== verdict ===")
-    print(
-        f"baseline v{n}: T1={baseline_scores['t1_mean']} T2={baseline_scores['t2_mean']} "
-        f"T3={baseline_scores['t3_mean']} composite={baseline_composite}"
-    )
+    print(_format_score_line(f"baseline v{n}", baseline_scores, baseline_composite))
     for c in candidates:
-        s = c["scores"]
-        print(
-            f"candidate {c['index']}: T1={s['t1_mean']} T2={s['t2_mean']} "
-            f"T3={s['t3_mean']} composite={c['composite']}"
-        )
+        print(_format_score_line(f"candidate {c['index']}", c["scores"], c["composite"]))
 
     winner = candidates[0] if candidates else None
     promote = False
     promote_reason = ""
     if winner is not None and winner["composite"] > baseline_composite:
+        regression_axes = ["t1_mean", "t2_mean", "t3_mean"]
+        if baseline_scores.get("deeper_included"):
+            regression_axes.extend(["t6_mean", "t7_mean", "t8_mean"])
         regressions = []
-        for axis in ("t1_mean", "t2_mean", "t3_mean"):
-            drop = baseline_scores[axis] - winner["scores"][axis]
+        for axis in regression_axes:
+            drop = baseline_scores.get(axis, 0.0) - winner["scores"].get(axis, 0.0)
             if drop > args.floor_drop:
                 regressions.append(f"{axis}: -{drop:.3f}")
         if regressions:
