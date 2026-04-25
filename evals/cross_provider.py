@@ -40,8 +40,11 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
 from spark_character import (  # noqa: E402
+    CodexSpec,
     ProviderSpec,
+    call_codex,
     call_provider,
+    codex_available,
     generate,
     load_persona,
     score_distinctiveness,
@@ -62,7 +65,8 @@ PROMPTS = [
 @dataclass(frozen=True)
 class ProviderProfile:
     name: str
-    spec: ProviderSpec
+    spec: ProviderSpec | CodexSpec
+    kind: str = "http"  # "http" or "codex"
 
 
 def resolve_providers(names: list[str]) -> list[ProviderProfile]:
@@ -105,6 +109,11 @@ def resolve_providers(names: list[str]) -> list[ProviderProfile]:
                     api_key=api_key,
                 ),
             ))
+        elif n == "codex":
+            spec = CodexSpec()
+            if not codex_available(spec):
+                continue
+            out.append(ProviderProfile(name="codex", spec=spec, kind="codex"))
     return out
 
 
@@ -181,19 +190,28 @@ def main() -> int:
         for p in profiles:
             t0 = time()
             try:
-                result = generate(prompt, provider=p.spec, persona=persona)
-                t1 = score_persona(result.final)
+                if p.kind == "codex":
+                    reply = call_codex(
+                        spec=p.spec,
+                        system_prompt=persona.system_prompt,
+                        user_prompt=prompt,
+                    )
+                else:
+                    reply = generate(prompt, provider=p.spec, persona=persona).final
+                t1 = score_persona(reply)
                 try:
-                    t2 = score_distinctiveness(result.final, provider=p.spec)
+                    # T2 judge always uses an HTTP backend (judge variable)
+                    t2 = score_distinctiveness(reply, provider=judge)
                     t2_score = t2.score
                 except Exception:
                     t2_score = None
                 dt = time() - t0
                 per_provider[p.name].append({
-                    "prompt": prompt, "reply": result.final,
+                    "prompt": prompt, "reply": reply,
                     "t1": t1.mean, "t2": t2_score, "dt_s": round(dt, 1),
                 })
-                print(f"  [{p.name}] T1={t1.mean} T2={t2_score} dt={dt:.1f}s :: {result.final.splitlines()[0][:80] if result.final else ''}")
+                first_line = reply.splitlines()[0] if reply else ""
+                print(f"  [{p.name}] T1={t1.mean} T2={t2_score} dt={dt:.1f}s :: {first_line[:80]}")
             except Exception as exc:
                 per_provider[p.name].append({"prompt": prompt, "error": str(exc)})
                 print(f"  [{p.name}] ERROR: {exc}")
