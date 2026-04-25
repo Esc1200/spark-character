@@ -34,13 +34,19 @@ from .scoring import (
     PersonaScore,
     score_persona,
 )
+from .stability import (
+    STABILITY_SCENARIOS,
+    StabilityResult,
+    StabilityScenario,
+    run_stability_scenario,
+)
 from .voice_judge import (
     DistinctivenessScore,
     score_distinctiveness,
     score_distinctiveness_async,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "CriticSpec",
@@ -53,6 +59,10 @@ __all__ = [
     "Probe",
     "ProbeResult",
     "ProviderSpec",
+    "STABILITY_SCENARIOS",
+    "StabilityResult",
+    "StabilityScenario",
+    "run_stability_scenario",
     "call_provider",
     "call_provider_async",
     "critique",

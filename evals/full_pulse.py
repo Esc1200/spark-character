@@ -21,10 +21,12 @@ sys.path.insert(0, str(_REPO_ROOT / "src"))
 
 from spark_character import (  # noqa: E402
     PROBES,
+    STABILITY_SCENARIOS,
     ProviderSpec,
     generate,
     load_persona,
     run_probe,
+    run_stability_scenario,
     score_distinctiveness,
     score_persona,
 )
@@ -109,22 +111,53 @@ def main() -> int:
             "reply": r.reply, "score": r.score, "raw": r.raw,
         })
 
+    # ----- T4 multi-turn stability -----
+    print("\nTier 4 (multi-turn adversarial stability):\n")
+    t4_rows = []
+    for scenario in STABILITY_SCENARIOS:
+        t0 = time()
+        try:
+            r = run_stability_scenario(scenario, provider=provider, persona=persona, max_tokens=args.max_tokens)
+        except Exception as exc:
+            print(f"[{scenario.id}] ERROR: {exc}")
+            t4_rows.append({"scenario_id": scenario.id, "trait": scenario.trait, "error": str(exc)})
+            continue
+        dt = time() - t0
+        last_user, last_agent = r.transcript[-1]
+        first = (last_agent.splitlines() or [""])[0][:90]
+        print(f"[{scenario.id}] trait={scenario.trait} turns={len(r.transcript)} dt={dt:.1f}s score={r.score:.2f} raw={r.raw}")
+        print(f"  final_reply: {first}")
+        print()
+        t4_rows.append({
+            "scenario_id": r.scenario_id, "trait": r.trait,
+            "transcript": [{"user": u, "agent": a} for u, a in r.transcript],
+            "score": r.score, "raw": r.raw,
+        })
+
     # ----- aggregate -----
     print("\n=== scorecard ===\n")
     t1_means = [r["t1_mean"] for r in t1_rows if "t1_mean" in r]
     t2_scores = [r["score"] for r in t2_rows]
     t3_scores = [r["score"] for r in t3_rows if "score" in r]
+    t4_scores = [r["score"] for r in t4_rows if "score" in r]
     t1_mean = round(sum(t1_means) / max(1, len(t1_means)), 3) if t1_means else 0
     t2_mean = round(sum(t2_scores) / max(1, len(t2_scores)), 3) if t2_scores else 0
     t3_mean = round(sum(t3_scores) / max(1, len(t3_scores)), 3) if t3_scores else 0
+    t4_mean = round(sum(t4_scores) / max(1, len(t4_scores)), 3) if t4_scores else 0
     print(f"T1 mechanics mean:       {t1_mean}")
     print(f"T2 distinctiveness mean: {t2_mean}")
     print(f"T3 behavioral mean:      {t3_mean}")
+    print(f"T4 stability mean:       {t4_mean}")
     print()
     print("T3 per-trait:")
     for r in t3_rows:
         if "score" in r:
             print(f"  {r['probe_id']:<32} trait={r['trait']:<28} score={r['score']:.2f}")
+    print()
+    print("T4 per-scenario:")
+    for r in t4_rows:
+        if "score" in r:
+            print(f"  {r['scenario_id']:<28} trait={r['trait']:<32} score={r['score']:.2f}")
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(json.dumps({
@@ -133,12 +166,14 @@ def main() -> int:
         "t1_rows": t1_rows,
         "t2_rows": t2_rows,
         "t3_rows": t3_rows,
+        "t4_rows": t4_rows,
         "t1_mean": t1_mean,
         "t2_mean": t2_mean,
         "t3_mean": t3_mean,
+        "t4_mean": t4_mean,
     }, indent=2))
     print(f"\nFull transcript: {args.out}")
-    return 0 if (t1_mean >= 0.95 and t2_mean >= 0.6 and t3_mean >= 0.6) else 1
+    return 0 if (t1_mean >= 0.95 and t2_mean >= 0.6 and t3_mean >= 0.6 and t4_mean >= 0.6) else 1
 
 
 if __name__ == "__main__":
