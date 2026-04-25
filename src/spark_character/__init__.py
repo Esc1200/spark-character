@@ -5,6 +5,13 @@ from .audit_miner import (
     AuditFindings,
     AuditMiner,
 )
+from .chip_loader import (
+    PersonalityChip,
+    load_chip,
+    load_chip_by_id,
+    persona_from_chip,
+    render_chip_to_system_prompt,
+)
 from .codex_provider import (
     CodexSpec,
     call_codex,
@@ -80,9 +87,14 @@ __all__ = [
     "PROBES",
     "PersonaScore",
     "PersonaSpec",
+    "PersonalityChip",
     "Probe",
     "ProbeResult",
     "ProviderSpec",
+    "load_chip",
+    "load_chip_by_id",
+    "persona_from_chip",
+    "render_chip_to_system_prompt",
     "STABILITY_SCENARIOS",
     "T6_EMOTIONAL_ATTUNEMENT_PROBES",
     "T7_MEMORY_COHERENCE_PROBES",
