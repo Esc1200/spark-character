@@ -1,0 +1,31 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+.venv/
+venv/
+env/
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# eval outputs
+evals/_pulse_last.json
+evals/_*.json
+
+# editor
+.vscode/
+.idea/
+*.swp
+
+# local secrets (should never be committed)
+.env
+.env.*
