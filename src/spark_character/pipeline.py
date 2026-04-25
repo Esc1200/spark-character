@@ -47,6 +47,7 @@ def generate(
     disable_thinking: bool = True,
     tools: list[dict] | None = None,
     enable_search: bool = False,
+    surface: str | None = None,
 ) -> GenerationResult:
     """Generate a Spark reply. disable_thinking defaults to True so the
     reasoning phase of reasoning models (GLM 5.1, o1-style) does not
@@ -67,7 +68,10 @@ def generate(
     When persona is None, the active version is loaded with the
     matching provider overlay automatically (Z.AI, MiniMax, etc.).
     Pass an explicit persona to override that behavior."""
-    p = persona or load_persona(provider_kind=detect_provider_kind(provider))
+    p = persona or load_persona(
+        provider_kind=detect_provider_kind(provider),
+        surface=surface,
+    )
     final_user_prompt = (
         attach_search_context(user_message) if enable_search else user_message
     )

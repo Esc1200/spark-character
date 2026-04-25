@@ -38,6 +38,18 @@ def load_overlay(provider_kind: str | None) -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
+def load_surface_overlay(surface: str | None) -> str:
+    """Return the overlay markdown for a given surface, or '' if none
+    is configured. Surfaces: 'voice', 'browser_extension', 'telegram',
+    'tui', 'cli'. Unknown surfaces return ''."""
+    if not surface:
+        return ""
+    path = OVERLAYS_DIR / "surface" / f"{surface.lower().strip()}.md"
+    if not path.exists():
+        return ""
+    return path.read_text(encoding="utf-8").strip()
+
+
 def detect_provider_kind(provider) -> str | None:
     """Heuristic: classify a ProviderSpec or CodexSpec into a kind
     string for overlay lookup. Returns None when uncertain."""
@@ -84,26 +96,43 @@ def load_persona(
     version: str | None = None,
     *,
     provider_kind: str | None = None,
+    surface: str | None = None,
 ) -> PersonaSpec:
-    """Load a persona artifact. Pass a version like 'v1' / 'v2' to pin
-    explicitly, or omit to auto-resolve to the active one.
+    """Load a persona artifact with optional provider and surface overlays.
 
-    Pass provider_kind='zai'|'minimax'|'codex'|... to append the
-    matching overlay from artifacts/overlays/<kind>.md after the base
-    spec. Overlays are short, backend-specific addenda that close
-    voice drift gaps for that particular model family. If no overlay
-    file exists for the kind, the base spec is returned unchanged.
+    Composition order:
+      1. Base persona (chip-rendered or flat MD).
+      2. Provider overlay if provider_kind is given (artifacts/overlays/<kind>.md).
+      3. Surface overlay if surface is given (artifacts/overlays/surface/<surface>.md).
+
+    Provider overlays target backend-specific drift (zai chatty, minimax
+    helper register, codex hallucinated context).
+
+    Surface overlays target surface-specific format constraints: voice
+    needs short declarative sentences with no markdown, browser_extension
+    needs short replies that fit a popup, etc.
+
+    Both axes compose orthogonally. The full chain reaches the model
+    in a single system prompt.
     """
     resolved = version or resolve_latest_persona_version()
     path = ARTIFACTS_DIR / f"persona.{resolved}.md"
     if not path.exists():
         raise FileNotFoundError(f"Persona artifact not found: {path}")
     base_text = path.read_text(encoding="utf-8")
+    parts = [base_text.rstrip()]
     overlay_text = load_overlay(provider_kind)
     if overlay_text:
-        combined = f"{base_text.rstrip()}\n\n---\n\n{overlay_text}"
-        return PersonaSpec(version=resolved, text=combined, overlay_kind=provider_kind)
-    return PersonaSpec(version=resolved, text=base_text, overlay_kind=None)
+        parts.append(overlay_text)
+    surface_text = load_surface_overlay(surface)
+    if surface_text:
+        parts.append(surface_text)
+    combined = "\n\n---\n\n".join(parts)
+    return PersonaSpec(
+        version=resolved,
+        text=combined,
+        overlay_kind=provider_kind if overlay_text else None,
+    )
 
 
 def load_persona_from_path(path: str | Path) -> PersonaSpec:

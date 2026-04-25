@@ -31,8 +31,10 @@ from .critic import (
 )
 from .persona import (
     PersonaSpec,
+    load_overlay,
     load_persona,
     load_persona_from_path,
+    load_surface_overlay,
 )
 from .pipeline import (
     GenerationResult,
@@ -140,6 +142,10 @@ __all__ = [
     "promote_evolved_persona_to_chip_lab",
     "load_chip",
     "load_chip_by_id",
+    "load_overlay",
+    "load_persona",
+    "load_persona_from_path",
+    "load_surface_overlay",
     "persona_from_chip",
     "render_chip_to_system_prompt",
     "EMOTIONAL_PROFILE_FIELDS",

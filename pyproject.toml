@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spark-character"
-version = "0.16.0"
+version = "0.17.0"
 description = "The voice and character of Spark agents. Provider-agnostic, evolvable through the self-evolving harness."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,6 +33,7 @@ spark_character = [
     "artifacts/*.txt",
     "artifacts/voice_corpus/*.json",
     "artifacts/overlays/*.md",
+    "artifacts/overlays/surface/*.md",
 ]
 
 [tool.pytest.ini_options]
