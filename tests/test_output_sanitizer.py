@@ -57,6 +57,12 @@ def test_unaffected_text_unchanged():
     assert replace_em_dashes(text) == text
 
 
+def test_ascii_hyphenated_identifiers_are_unchanged():
+    text = "`startup-operator` session-123 domain-chip-voice-comms anti-filler"
+    assert replace_em_dashes(text) == text
+    assert sanitize_voice_output(text) == text
+
+
 def test_empty_input_passthrough():
     assert replace_em_dashes("") == ""
     assert sanitize_voice_output("") == ""

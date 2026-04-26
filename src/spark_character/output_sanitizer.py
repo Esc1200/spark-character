@@ -29,6 +29,8 @@ EM_DASH_FAMILY = (
 
 
 def is_dash_punctuation(ch: str) -> bool:
+    if ch == "-":
+        return False
     return unicodedata.category(ch) == "Pd" or ch == "\u2212"
 
 
