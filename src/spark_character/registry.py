@@ -15,7 +15,7 @@ chip-lab-authored personality from a spark-character-evolved variant:
       base_chip_id: founder-operator
       base_persona_version: v4
       new_persona_version: v5
-      composite_score: 0.875
+      promotion_result: accepted
       promoted_at: 2026-04-25T17:30:00Z
 
 Plus all the fields from the base chip carried forward, plus
@@ -105,7 +105,7 @@ def promote_evolved_persona_to_chip_lab(
         "base_chip_id": base_chip_id,
         "base_persona_version": base_persona_version,
         "new_persona_version": new_persona_version,
-        "composite_score": float(composite_score) if composite_score is not None else None,
+        "promotion_result": "accepted",
         "promoted_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     out["voice_rules_override"] = persona_markdown.strip()
@@ -158,9 +158,8 @@ def promote_evolved_chip_to_chip_lab(
         "base_chip_id": base_chip_id,
         "base_persona_version": base_persona_version,
         "new_persona_version": new_persona_version,
-        "composite_score": float(composite_score) if composite_score is not None else None,
+        "promotion_result": "accepted",
         "promoted_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "delta_summary": delta_summary or {},
     }
     if voice_rules_override:
         spec["voice_rules_override"] = voice_rules_override.strip()
