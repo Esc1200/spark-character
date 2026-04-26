@@ -4,6 +4,7 @@ from spark_character import (
     EM_DASH_FAMILY,
     replace_em_dashes,
     sanitize_voice_output,
+    strip_markdown_emphasis,
 )
 from spark_character.scoring import score_persona
 
@@ -37,6 +38,16 @@ def test_unaffected_text_unchanged():
 def test_empty_input_passthrough():
     assert replace_em_dashes("") == ""
     assert sanitize_voice_output("") == ""
+
+
+def test_strip_markdown_emphasis_preserves_bullets():
+    text = "* **Lean dashboard first** - ship it fast"
+    assert strip_markdown_emphasis(text) == "* Lean dashboard first - ship it fast"
+
+
+def test_sanitize_removes_bold_markers():
+    text = "Short answer: **yes**.\n\n**Two directions:**"
+    assert sanitize_voice_output(text) == "Short answer: yes.\n\nTwo directions:"
 
 
 def test_sanitized_output_passes_t1_em_dash_check():

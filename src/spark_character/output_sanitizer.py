@@ -3,10 +3,11 @@
 These run after generation, before delivery. Use them when the model
 won't honor a rule from the system prompt no matter how loudly we ask.
 
-Currently scoped to em-dash family substitution: production telemetry
-shows ~50% of LLM-generated replies contain em dashes despite an explicit
-persona rule against them. Prompt-layer correction has been insufficient,
-so we apply a deterministic post-output fix at the runtime boundary.
+Currently scoped to safe typography fixes: em-dash family substitution
+and paired Markdown emphasis removal. Production telemetry showed these
+leaks despite explicit persona rules. Prompt-layer correction has been
+insufficient, so we apply deterministic post-output fixes at the runtime
+boundary.
 
 Other voice violations (plumbing leaks, reset openers, hedge openers)
 require regeneration rather than substitution, so they are not handled
@@ -14,6 +15,8 @@ here. Leave those to the critic.
 """
 
 from __future__ import annotations
+
+import re
 
 EM_DASH_FAMILY = (
     "\u2014",  # em dash
@@ -43,6 +46,16 @@ def replace_em_dashes(text: str, replacement: str = " - ") -> str:
     return out
 
 
+def strip_markdown_emphasis(text: str) -> str:
+    """Remove paired bold/italic emphasis markers while preserving bullets."""
+    if not text:
+        return text
+    out = re.sub(r"\*\*\*([^*\n][\s\S]*?[^*\n])\*\*\*", r"\1", text)
+    out = re.sub(r"\*\*([^*\n][\s\S]*?[^*\n])\*\*", r"\1", out)
+    out = re.sub(r"__([^_\n][\s\S]*?[^_\n])__", r"\1", out)
+    return out
+
+
 def sanitize_voice_output(text: str) -> str:
     """Apply all voice post-processors that are safe to run in production."""
-    return replace_em_dashes(text)
+    return strip_markdown_emphasis(replace_em_dashes(text))

@@ -110,6 +110,7 @@ from .output_sanitizer import (
     EM_DASH_FAMILY,
     replace_em_dashes,
     sanitize_voice_output,
+    strip_markdown_emphasis,
 )
 from .voice_judge import (
     DistinctivenessScore,
@@ -132,6 +133,7 @@ __all__ = [
     "EM_DASH_FAMILY",
     "replace_em_dashes",
     "sanitize_voice_output",
+    "strip_markdown_emphasis",
     "GenerationResult",
     "PROBES",
     "PersonaScore",

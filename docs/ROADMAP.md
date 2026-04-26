@@ -152,6 +152,12 @@ The `auto_loop` daemon currently runs `evolve_persona.py` as a subprocess. If a 
 - Persist cycle state (started_at, current_phase, last_promoted_at) in `evals/_auto_loop_state.json` so a daemon restart picks up where it left off.
 - Add a heartbeat file that external monitors can watch.
 
+### Telegram scanability audit signals
+
+The audit miner now treats Markdown bold/italic emphasis and dense opening previews as production T1 failures. Those signals are mined from `gateway-outbound.jsonl` and passed into `evolve_persona.py` as diagnose lines, so real Telegram style drift can steer future persona mutations.
+
+This stays inside the existing promotion gates: the loop may propose a cleaner persona, but it still needs composite score improvement and regression checks before anything ships.
+
 ## Operating principles
 
 The roadmap above is a wish list. The following are non-negotiable as the engine evolves:

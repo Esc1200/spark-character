@@ -40,6 +40,12 @@ from .scoring import (
     _first_sentence,
 )
 
+MARKDOWN_EMPHASIS_PATTERN = re.compile(
+    r"(?<!\\)(?:\*\*\*[^*\n]+?\*\*\*|\*\*[^*\n]+?\*\*|__[^_\n]+?__)"
+)
+
+DENSE_OPENING_MIN_CHARS = 135
+
 
 # Routes whose reply text comes from the LLM. Anything else (memory
 # observations, mission control, error fallback shapers, runtime
@@ -164,6 +170,11 @@ def _detect_failures(text: str) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     if EM_DASH in text:
         out.append(("em_dash", f"{text.count(EM_DASH)} occurrences"))
+    markdown_matches = MARKDOWN_EMPHASIS_PATTERN.findall(text)
+    if markdown_matches:
+        out.append(("markdown_emphasis", f"{len(markdown_matches)} markdown emphasis markers"))
+    if _looks_like_dense_opening(text):
+        out.append(("dense_opening", "long single-paragraph preview with few sentence breaks"))
     matches = sorted({m.lower() for m in PLUMBING_PATTERN.findall(text)})
     if matches:
         out.append(("plumbing", ",".join(matches)))
@@ -175,3 +186,14 @@ def _detect_failures(text: str) -> list[tuple[str, str]]:
         match = HEDGE_PATTERN.search(first)
         out.append(("hedge_opener", match.group(0)[:60] if match else ""))
     return out
+
+
+def _looks_like_dense_opening(text: str) -> bool:
+    """Detect scan-hostile openings within the audit log's 160-char preview."""
+    preview = text.strip()
+    if len(preview) < DENSE_OPENING_MIN_CHARS:
+        return False
+    if "\n" in preview:
+        return False
+    sentence_breaks = len(re.findall(r"[.!?]", preview))
+    return sentence_breaks <= 1

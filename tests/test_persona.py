@@ -21,6 +21,16 @@ def test_load_critic_v1() -> None:
     text = critic.system_prompt
     assert "PASS" in text
     assert "em dash" in text.lower()
+    assert "Avoid Markdown bold/italic emphasis" in text
+    assert "paragraphs short" in text
+
+
+def test_latest_persona_has_chat_scanning_rules() -> None:
+    persona = load_persona()
+    text = persona.system_prompt
+    assert "short paragraphs" in text
+    assert "Avoid Markdown bold or italic emphasis" in text
+    assert "Break dense answers into small chunks" in text
 
 
 def test_persona_text_has_no_em_dash() -> None:

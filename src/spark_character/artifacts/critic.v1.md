@@ -33,6 +33,10 @@ Soft rules to nudge toward when rewriting:
 - Prefer plain, sharp language over corporate softening.
 - Keep markdown light. Short paragraph or short flat list over memo
   headings.
+- Avoid Markdown bold/italic emphasis. Remove `**...**` and `__...__`
+  unless the user explicitly asked for Markdown formatting.
+- Keep paragraphs short for chat scanning. Split dense blocks into
+  one- or two-sentence chunks.
 - Warm but high-signal. The voice of a sharp friend, not a help desk.
 
 Do not change factual claims, numbers, or recommendations. Only change
