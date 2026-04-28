@@ -6,7 +6,10 @@ from spark_character import (
     sanitize_voice_output,
     strip_markdown_emphasis,
 )
-from spark_character.output_sanitizer import strip_format_controls
+from spark_character.output_sanitizer import (
+    rewrite_spawner_surface_standalone_question,
+    strip_format_controls,
+)
 from spark_character.scoring import score_persona
 
 
@@ -76,6 +79,33 @@ def test_strip_markdown_emphasis_preserves_bullets():
 def test_sanitize_removes_bold_markers():
     text = "Short answer: **yes**.\n\n**Two directions:**"
     assert sanitize_voice_output(text) == "Short answer: yes.\n\nTwo directions:"
+
+
+def test_rewrites_stale_standalone_spawner_surface_question():
+    text = (
+        "Spawner Kanban and Canvas notes:\n\n"
+        "My pick: start with Live State Sync.\n\n"
+        "- Are you thinking this runs locally as a standalone page, or lives inside the existing Spawner UI routes?"
+    )
+    cleaned = rewrite_spawner_surface_standalone_question(text)
+
+    assert "standalone page" not in cleaned.lower()
+    assert "Since this lives inside the existing Spawner UI routes" in cleaned
+    assert "Kanban state accuracy, Canvas execution state, or Telegram relay messaging" in cleaned
+
+
+def test_sanitize_removes_bold_and_stale_standalone_question():
+    text = (
+        "1. **Live State Sync**\n\n"
+        "Spawner Kanban and Canvas.\n\n"
+        "- Are you thinking this runs locally as a standalone page, or lives inside the existing Spawner UI routes?"
+    )
+    cleaned = sanitize_voice_output(text)
+
+    assert "**" not in cleaned
+    assert "standalone page" not in cleaned.lower()
+    assert "1. Live State Sync" in cleaned
+    assert "Since this lives inside the existing Spawner UI routes" in cleaned
 
 
 def test_sanitized_output_passes_t1_em_dash_check():

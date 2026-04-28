@@ -69,6 +69,41 @@ def strip_markdown_emphasis(text: str) -> str:
     return out
 
 
+def rewrite_spawner_surface_standalone_question(text: str) -> str:
+    """Replace stale standalone-tool questions for existing Spawner surfaces."""
+    if not text:
+        return text
+    lower = text.lower()
+    mentions_spawner_surface = "spawner" in lower and (
+        "kanban" in lower or "canvas" in lower or "mission control" in lower
+    )
+    if not mentions_spawner_surface or "standalone" not in lower:
+        return text
+
+    replacement = (
+        "\n\nSince this lives inside the existing Spawner UI routes, the useful question is: "
+        "which surface should we tighten first - Kanban state accuracy, Canvas execution state, "
+        "or Telegram relay messaging?"
+    )
+    out = re.sub(
+        r"\n?\s*[-*]?\s*Are you thinking this runs locally as a standalone page,\s*"
+        r"or lives inside the existing Spawner UI routes\?\s*$",
+        replacement,
+        text,
+        flags=re.IGNORECASE,
+    )
+    out = re.sub(
+        r"\n?\s*[-*]?\s*Should this be a standalone (?:page|app|tool),\s*"
+        r"or live inside the existing Spawner UI routes\?\s*$",
+        replacement,
+        out,
+        flags=re.IGNORECASE,
+    )
+    return out
+
+
 def sanitize_voice_output(text: str) -> str:
     """Apply all voice post-processors that are safe to run in production."""
-    return strip_markdown_emphasis(replace_em_dashes(strip_format_controls(text)))
+    return rewrite_spawner_surface_standalone_question(
+        strip_markdown_emphasis(replace_em_dashes(strip_format_controls(text)))
+    )
