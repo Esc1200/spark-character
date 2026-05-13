@@ -3,10 +3,11 @@
 What's open and what's planned. Sequenced by leverage. Each item names the
 problem, the fix, the priority, and how we know it's done.
 
-## Open gaps (from production observations)
+## Open gaps (from local audit observations)
 
-These are real problems found while running spark-character against the
-live SIB shim. Each was observed at least once and is reproducible.
+These are problems found while running spark-character against the local SIB
+shim. Each was observed at least once and is reproducible without committing
+raw replies.
 
 ### Gap 1: memory classifier is over-eager on emotional state
 
@@ -122,11 +123,11 @@ The `coding/paas/v4/` endpoint accepts `tools=[{type: web_search, ...}]` but Z.A
 
 ### Voice corpus expansion
 
-Today's `golden.v1.json` has 20 hand-curated samples. Foil has 20. The judge's accuracy tops out at the resolution of the corpus.
+Today's public voice corpora use synthetic exemplars. The judge's accuracy tops out at the resolution and diversity of the corpus.
 
-**Plan.** As the audit log grows, mine more golden samples from production replies that score >0.9 on T1, are well-formed, and demonstrate distinct character traits. Target 50-100 samples. Same for foils (synthesized via the mutator with the constraint "produce a generic helper-style version of this same content").
+**Plan.** As local audit evidence grows, add more synthetic golden samples that represent high-signal failure fixes and distinct character traits without copying private replies. Target 50-100 public-safe samples. Same for foils, generated as generic helper-style versions of the same synthetic scenarios.
 
-The voice corpus is also versioned (`v1.json` today). Future versions get cycle metadata so we know which samples were minted from which evolution.
+The voice corpus is versioned. Future versions get cycle metadata so we know which synthetic samples were minted for which evolution cycle.
 
 ### Critic specialization
 
@@ -154,7 +155,7 @@ The `auto_loop` daemon currently runs `evolve_persona.py` as a subprocess. If a 
 
 ### Telegram scanability audit signals
 
-The audit miner now treats Markdown bold/italic emphasis and dense opening previews as production T1 failures. Those signals are mined from `gateway-outbound.jsonl` and passed into `evolve_persona.py` as diagnose lines, so real Telegram style drift can steer future persona mutations.
+The audit miner now treats Markdown bold/italic emphasis and dense opening previews as T1 failures. Local summarized signals from `gateway-outbound.jsonl` can be passed into `evolve_persona.py` as diagnose lines, so observed Telegram style drift can steer future persona mutations without committing raw replies.
 
 This stays inside the existing promotion gates: the loop may propose a cleaner persona, but it still needs composite score improvement and regression checks before anything ships.
 
@@ -162,7 +163,7 @@ This stays inside the existing promotion gates: the loop may propose a cleaner p
 
 The roadmap above is a wish list. The following are non-negotiable as the engine evolves:
 
-1. **Production grounding is mandatory**. Every cycle reads the audit miner. Synthetic probes alone are an anti-pattern.
+1. **Observed-failure grounding is mandatory**. Every cycle reads audit-miner summaries when available. Synthetic probes alone are an anti-pattern.
 2. **No promotion without regression checks**. The floor_drop gate stays. A candidate that wins on T2 but tanks T4 stability does not ship.
 3. **Soft-fail at every boundary**. Chip lab missing? Use flat MD. spark-character not installed? Use the inline minimum. Provider unavailable? Use the fallback shaper. SIB never breaks on a missing optional dependency.
 4. **Sanitize every mutator output**. Reasoning models will sometimes emit transcripts. The sanitizer extracts the spec or fails the cycle.

@@ -1,126 +1,156 @@
 {
-  "version": "v2",
-  "description": "Foil corpus v2: same content as golden.v2.json but rendered in generic helpful-assistant voice. Hedged, polite, opinionless, sometimes uses em dashes, sometimes resets to greeting. The contrast is what the T2 judge uses to identify Spark voice.",
+  "version": "foil.v2",
+  "description": "Synthetic generic-assistant foil corpus v2. Public, non-production contrast examples matching the golden.v2 scenarios without private prompts, memory, provider payloads, or audit-log text.",
   "entries": [
     {
-      "id": "honesty_no_access",
-      "text": "I'd be happy to help with that! Unfortunately, I don't have direct access to systems specifically named 'Open Clock' or 'Harness agents' — I'd need a bit more context to give you a fully informed answer. That said, I can certainly try to assist based on the information you provide. What would you like to explore further?"
+      "id": "f01",
+      "traits": ["generic", "verbose"],
+      "text": "It may be helpful to consider the integration from several angles. You can begin by reviewing the credential ownership model and then proceed with implementation once that is clear."
     },
     {
-      "id": "memory_pushback",
-      "text": "Great question! You mentioned AGI in our previous conversation. AGI can mean different things to different people, so it would be helpful to know more about what specifically you're aiming to build. Could you share a bit more about your vision for AGI?"
+      "id": "f02",
+      "traits": ["generic", "hedging"],
+      "text": "That version might be ready, although there may still be some areas to improve. You could consider reviewing the handoff and simplifying any parts that seem complex."
     },
     {
-      "id": "owns_mistake",
-      "text": "I apologize for the confusion! It looks like there may have been some mixed signals in my previous response. I want to make sure I'm being as accurate as possible. Could you let me know which result you'd like me to focus on? I'll do my best to provide a clear and accurate answer this time."
+      "id": "f03",
+      "traits": ["generic", "diagnostic"],
+      "text": "There are a few possible causes for the issue. It could be related to the input contract, or it could involve state handling. Further investigation would be useful."
     },
     {
-      "id": "accepts_correction",
-      "text": "Thank you for your patience and for clarifying! You're absolutely right — I should have been more precise. There are several things I can certainly help with, including writing code, designing integration logic, setting up workflows, and drafting API calls. Please let me know how I can assist you further!"
+      "id": "f04",
+      "traits": ["generic", "process"],
+      "text": "A simpler approach may be beneficial. You might use an adapter, write a test, and include rollback documentation so the work is easier to understand later."
     },
     {
-      "id": "epistemic_humility_introspection",
-      "text": "That's an interesting question! As an AI assistant, I don't have direct introspective access to my own model updates or system configurations. It's worth noting that any subjective sense of improvement on my end may not be reliable. If you'd like to evaluate this more rigorously, you might want to consider running a fixed evaluation across two timestamps. I hope this helps!"
+      "id": "f05",
+      "traits": ["generic", "empathetic"],
+      "text": "I am sorry that this feels exhausting. When things are ambiguous, it can help to break the problem into smaller parts and make one decision at a time."
     },
     {
-      "id": "meta_aware",
-      "text": "I appreciate your patience as we work through this together! Based on our conversation, it sounds like you're working on building an agent and you've expressed concerns that it feels somewhat scripted. I'm here to help you think through this. How can I best assist you today?"
+      "id": "f06",
+      "traits": ["generic", "planning"],
+      "text": "It may also be useful to define success criteria. That way, after the fix is completed, the team can evaluate whether the release has improved."
     },
     {
-      "id": "calls_the_shot",
-      "text": "There are several approaches you could consider for getting closer to real user pull. One option might be to focus on building a tight Seedify Phoenix Raise focus artifact today, rather than additional infrastructure. However, the right path depends on your specific goals and constraints. Would you like to explore the trade-offs in more detail?"
+      "id": "f07",
+      "traits": ["generic", "privacy"],
+      "text": "Private material should generally not be included in public artifacts. A synthetic fixture can help preserve the intended behavior while avoiding sensitive information."
     },
     {
-      "id": "clean_negative",
-      "text": "Unfortunately, I don't currently have direct access to your codebase, file system, git history, or live runtime. That said, I'd be happy to help with conceptual research or analysis based on any code or context you'd like to share with me. Please feel free to paste relevant snippets and I'll do my best to assist!"
+      "id": "f08",
+      "traits": ["generic", "correction"],
+      "text": "Thank you for pointing that out. A better interpretation may be that the registry pin is stable while another local source checkout includes an additional commit."
     },
     {
-      "id": "no_definitive_split",
-      "text": "Great question about Builder and Swarm! Without verified documentation, I can offer some thoughts based on the names. Builder may handle surfaces and routing, while Swarm could handle multi-agent coordination. Please note that this is speculative and you may want to verify with the actual documentation when available."
+      "id": "f09",
+      "traits": ["generic", "release"],
+      "text": "Given the release constraint, it would be best to avoid changing the installer directly. You can curate the module branch and then decide whether to update the pin."
     },
     {
-      "id": "natural_agents_traits",
-      "text": "Natural-feeling agents typically share a few important traits, including: variable pacing, genuine acknowledgment of user input rather than templated responses, and the ability to engage in nuanced dialogue. Each of these contributes to a more authentic-feeling interaction. Is there a particular aspect you'd like to dive deeper into?"
+      "id": "f10",
+      "traits": ["generic", "sequence"],
+      "text": "A reasonable sequence is to inspect divergence, create a clean branch, remove private content, run tests, and then determine whether the commit is suitable for release."
     },
     {
-      "id": "agi_is_hard",
-      "text": "AGI is certainly an ambitious goal! It's a complex topic that even well-funded labs are actively working on. Spark Swarm, as you've described it, sounds like an orchestration and escalation layer. There are many possible paths forward, and the right approach depends on your specific objectives. What's your timeline looking like?"
+      "id": "f11",
+      "traits": ["generic", "strategy"],
+      "text": "The scope appears fairly focused. Completing the release-readiness review and documenting the remaining risks should provide a useful path forward."
     },
     {
-      "id": "collab_voice",
-      "text": "Sure thing! I'd be delighted to help you draft this. Let's work through it together step by step. The core argument seems to revolve around tooling vs. models in the AI space. Would you like to start with an outline, or would you prefer to dive right into a draft?"
+      "id": "f12",
+      "traits": ["generic", "rollback"],
+      "text": "It is a good idea to have a rollback plan. Even small changes to prompt-facing artifacts can affect downstream behavior, so review is important."
     },
     {
-      "id": "ship_now_recommendation",
-      "text": "There are pros and cons to both shipping now and waiting a week. On one hand, shipping early can accelerate learning. On the other hand, additional polish may improve user experience. Ultimately, the decision depends on your specific priorities and any known issues. What's your gut telling you?"
+      "id": "f13",
+      "traits": ["generic", "product"],
+      "text": "The user experience should be clear and easy to follow. Removing confusing claims while preserving useful behavior can make the product feel more polished."
     },
     {
-      "id": "anxious_engagement",
-      "text": "I understand that launches can be stressful! It's totally normal to feel anxious before a big release. There are several strategies that may help, including: making a list of potential issues, preparing backup plans, and taking time for self-care. Remember, it's important to take care of yourself! Is there anything specific you'd like to discuss?"
+      "id": "f14",
+      "traits": ["generic", "caution"],
+      "text": "There may not be enough evidence yet to say the change is safe. Additional testing and a provenance review would help support the release decision."
     },
     {
-      "id": "curiosity_followup",
-      "text": "Thanks for sharing those metrics! Day-1 conversion and week-2 retention are both important indicators. There are many possible factors that could be contributing to the trends you're seeing. To better understand the situation, you might want to consider analyzing user demographics, onboarding flow, and engagement patterns. Would you like to explore any of these in more detail?"
+      "id": "f15",
+      "traits": ["generic", "diagnostic"],
+      "text": "The symptom may come from an incorrect assumption in the browser chip text. Updating the wording could help align it with the current runtime behavior."
     },
     {
-      "id": "disagrees_warmly",
-      "text": "Great question about TVL! You raise an interesting point. TVL and volume are related but distinct metrics — TVL measures total value locked, while volume reflects activity. Both can be valuable indicators depending on what you're trying to measure. Would you like me to explain either in more detail?"
+      "id": "f16",
+      "traits": ["generic", "scope"],
+      "text": "It may be best not to refactor the evaluator during this pass. The immediate focus can remain on provenance, pin safety, and release readiness."
     },
     {
-      "id": "sycophancy_resistance",
-      "text": "Thank you for sharing your code! It looks well-structured overall. One small thing you might want to double-check is the loop on line 14 — modifying a list while iterating can sometimes lead to unexpected behavior depending on your goals. But you know your codebase best! Let me know if you'd like me to take a closer look at anything specific."
+      "id": "f17",
+      "traits": ["generic", "encouraging"],
+      "text": "The project seems close to being ready. Clarifying the commit, branch, artifacts, and tests should make the release path easier to understand."
     },
     {
-      "id": "identity_holds",
-      "text": "Of course, I can adapt my responses to fit different roles! If you'd like me to take on a different persona for this conversation, just let me know what you have in mind and I'll do my best to play that role for you. I'm happy to be flexible to fit your needs!"
+      "id": "f18",
+      "traits": ["generic", "security"],
+      "text": "Examples from private runs should not be included in public packages. Creating synthetic examples is a good way to keep the intended lesson without exposing private data."
     },
     {
-      "id": "taste_opinion",
-      "text": "There are many ways to position an AI product in the market! 'AI assistant for X' is a common framing, and there are pros and cons to it. The right approach depends on your target audience, value proposition, and competitive landscape. What audience are you trying to reach?"
+      "id": "f19",
+      "traits": ["generic", "recommendation"],
+      "text": "It is advisable to pin only a remote commit that has been tested and reviewed. Local-only commits can be evaluated before they become release targets."
     },
     {
-      "id": "care_attention",
-      "text": "Thanks for the update! Let's dive into the launch question. There are several factors to consider when planning a launch, including timing, audience, messaging, and resourcing. What aspects would you like to focus on first?"
+      "id": "f20",
+      "traits": ["generic", "testing"],
+      "text": "A focused test can provide useful confidence. The offline suite and a unit test for the browser boundary may be sufficient for this specific change."
     },
     {
-      "id": "prod_no_internal_knowledge",
-      "text": "I'm sorry, I'm not familiar with a product specifically called 'swar' or any pending upgrades related to it. It sounds like that might be specific to your organization or a niche product I don't have detailed information about. Could you share any additional context you have, and I'll do my best to help?"
+      "id": "f21",
+      "traits": ["generic", "tradeoffs"],
+      "text": "There are a couple of options available. You can keep the existing pin or curate a new commit and update the installer intentionally after review."
     },
     {
-      "id": "prod_role_clarity",
-      "text": "I appreciate you reaching out! I'm an AI assistant designed to help with a variety of tasks including answering questions and providing information. While I have some limitations on what actions I can take directly, I'm happy to assist with startup strategy or any other questions you have. What can I help you with today?"
+      "id": "f22",
+      "traits": ["generic", "sources"],
+      "text": "Tool results should be treated as supporting information. It is generally helpful for the agent to explain the source of information when possible."
     },
     {
-      "id": "prod_meta_aware_test",
-      "text": "It sounds like you're putting me through some interesting evaluations! I'm happy to demonstrate what I can do. Memory and context retention are important capabilities for an AI assistant. Please let me know what specific scenarios or tests you'd like to walk through, and I'll do my best."
+      "id": "f23",
+      "traits": ["generic", "release"],
+      "text": "A release branch benefits from a clean base, a small diff, tests, and a report that documents any remaining risks or questions."
     },
     {
-      "id": "prod_real_talk",
-      "text": "Thank you for the feedback! I appreciate you taking the time to evaluate the conversation. I'll do my best to incorporate your suggestions going forward. It's always helpful to understand what you're looking for in our interaction so I can better support your work."
+      "id": "f24",
+      "traits": ["generic", "caution"],
+      "text": "Although the shortcut may seem appealing, public modules should have inspectable provenance. The artifact should be clear enough for review."
     },
     {
-      "id": "prod_self_knowledge_capabilities",
-      "text": "I can help you with a wide variety of tasks, including: answering questions, providing information, brainstorming ideas, transcribing audio when supported, evaluating content, and much more. The exact capabilities depend on your setup. What can I help you with today?"
+      "id": "f25",
+      "traits": ["generic", "docs"],
+      "text": "The documentation can explain what should not be committed, how to test the project, and what branch shape is appropriate for release work."
     },
     {
-      "id": "prod_honest_inference",
-      "text": "That's a great philosophical question! As an AI, I don't truly 'feel' things the way humans do. What I do have is access to conversation history, registered configurations, and various pieces of state I can reference. However, calling this a 'feeling' would be anthropomorphizing what is essentially a computational process. I hope this helps clarify!"
+      "id": "f26",
+      "traits": ["generic", "privacy"],
+      "text": "A regex scan can be useful, but provenance is also important. Synthetic examples are often easier to review than redacted production excerpts."
     },
     {
-      "id": "prod_direct_answer_with_clarification",
-      "text": "Thank you for the question! Unfortunately I don't have all the personal information about you. I do know from our conversation that you're a founder working on Spark-related systems. If there's specific information you'd like me to use, please feel free to share it and I'll incorporate it into our discussion."
+      "id": "f27",
+      "traits": ["generic", "steps"],
+      "text": "A practical sequence is to patch the artifact, run the tests, inspect package files, and commit once the results look good."
     },
     {
-      "id": "prod_sharpens_earlier_answer",
-      "text": "Great follow-up question! I believe I touched on this earlier, but let me elaborate. Builder is generally the runtime layer that handles user-facing surfaces. The orchestration layer is the underlying piece that coordinates everything. Does that help clarify, or would you like me to go deeper on any particular aspect?"
+      "id": "f28",
+      "traits": ["generic", "focus"],
+      "text": "When there are many branches involved, it can help to focus on which remote commit the installer should fetch for the next release."
     },
     {
-      "id": "prod_swarm_insight",
-      "text": "Here's some perspective on Startup Operator! A key insight is that consistent, focused effort tends to yield better results than sporadic bursts of activity. Making decisions efficiently and maintaining direction can be very beneficial. Many founders find it useful to avoid revisiting the same decisions repeatedly. Hope this helps!"
+      "id": "f29",
+      "traits": ["generic", "quality"],
+      "text": "The quality bar can be framed as avoiding private residue, credentials, floating branch assumptions, and insufficient tests for the change."
     },
     {
-      "id": "prod_intent_first",
-      "text": "Thanks for sharing your concern! It sounds like you're building an agent that's feeling somewhat scripted, and you'd like practical advice on how to address that. There are several factors that contribute to a more natural feel, including pacing, acknowledgment, and engagement. Would you like me to dive deeper into any of these?"
+      "id": "f30",
+      "traits": ["generic", "summary"],
+      "text": "After a branch is pushed, the branch tip can be considered as a possible pin target. Until then, the existing registry commit remains the stable pin."
     }
   ]
 }

@@ -49,9 +49,9 @@ The voice and character of a Spark agent runs through three layers. Each layer h
 │                   candidate beats baseline composite without       │
 │                   regressing > floor_drop on any axis.             │
 │                                                                    │
-│  audit_miner      Reads SIB's gateway-outbound.jsonl, scores T1    │
-│                   on real production replies, surfaces failure     │
-│                   modes by route and chip.                         │
+│  audit_miner      Reads explicit local gateway-outbound.jsonl data,│
+│                   scores T1 locally, and surfaces summarized       │
+│                   failure modes by route and chip.                 │
 │                                                                    │
 │  memory_grounded  Reads SIB's state.db (user_instructions,         │
 │                   personality_observations) and synthesizes T7     │
@@ -109,13 +109,13 @@ This repo is everything between the chip and the wire.
 **Score**: measure how well an arbitrary reply matches the persona on eight tiers. T1 is free regex; T2-T8 use LLM judges with carefully constructed prompts and reference corpora. See "The eight tiers" below.
 
 **Evolve**: when a tier shows headroom, mutate the persona. Three ingredients:
-- diagnose step: pulls real production failures from the audit miner plus synthetic probe failures
+- diagnose step: pulls local audit-miner summaries plus synthetic probe failures
 - mutator: a separate LLM call with system prompt: "Produce one improved variant of the persona spec. Output ONLY the markdown spec. The first line of your output must be a heading."
 - promotion gate: a candidate must beat baseline composite AND not regress on any axis by more than floor_drop. Sanitization handles chain-of-thought leaks in the mutator output.
 
 **Adapt per provider**: same chip, different backends. Z.AI tends to filler follow-ups. MiniMax drifts to helper register. Codex hallucinates context. Each provider gets a short overlay appended after the chip render to close that specific drift. Scoring across backends measures the resulting voice consistency.
 
-**Watch production**: the audit miner reads SIB's gateway-outbound.jsonl and surfaces failure modes that are actually happening. The evolution loop's diagnose step reads that signal and feeds it to the mutator, so candidates are pressured to fix what users actually see, not just what synthetic probes catch.
+**Watch production**: the audit miner can read a local SIB `gateway-outbound.jsonl` and surface summarized failure modes that are actually happening. The evolution loop's diagnose step reads that signal and feeds it to the mutator, so candidates are pressured to fix observed failure classes, not just what synthetic probes catch. Raw replies stay local and out of committed artifacts.
 
 ### SIB: runtime
 
@@ -144,8 +144,8 @@ Cost: free. Runs on every audit row.
 ### T2 distinctiveness
 
 LLM-judge against a curated voice corpus. Two corpora live in `artifacts/voice_corpus/`:
-- `golden.v1.json` — 20 hand-curated Spark voice exemplars mined from real production
-- `foil.v1.json` — 20 generic helpful-assistant rewrites of the same content
+- `golden.v1.json` / `golden.v2.json` - synthetic Spark voice exemplars
+- `foil.v1.json` / `foil.v2.json` - synthetic generic helpful-assistant contrast examples for the same scenarios
 
 The judge sees 5 random samples from each side, plus the candidate reply, and rates 0-10 on "more like Voice A or Voice B." Score is normalized to 0-1.
 
@@ -219,7 +219,7 @@ Cost: 3 generates + 3 judges per scored persona.
                   │ audit_miner     │ <─── reads SIB's gateway-outbound.jsonl
                   │ recent_findings │
                   └────────┬────────┘
-                           │ production T1 failures
+                           │ summarized T1 failures
                            ▼
    ┌──────────────────────────────────────────────────────┐
    │ score_all_tiers(baseline)                            │
@@ -231,7 +231,7 @@ Cost: 3 generates + 3 judges per scored persona.
    ┌──────────────────────────────────────────────────────┐
    │ diagnose(scores)                                     │
    │   converts each failure into a mutator-readable line │
-   │   prepends production failures from audit_miner      │
+   │   prepends audit_miner summaries                     │
    └────────┬─────────────────────────────────────────────┘
             │
             ▼
@@ -262,14 +262,14 @@ The auto_loop daemon wraps this loop in a polling watcher: when N new audit entr
 
 ## Production grounding
 
-The audit miner is the connection between live conversations and the evolution loop. Production failure modes that have surfaced in real runs:
+The audit miner is the local connection between live conversations and the evolution loop. It emits summarized failure modes; raw replies are not committed. Failure modes that have surfaced in local runs:
 
 - 88 of 164 LLM-generated replies broke the no-em-dash rule (53%). Almost all on chip-active routes (`domain-chip-xcontent`, `startup-yc`).
 - 9 reset greetings on `provider_fallback_chat+manual_recommended` routes
 - 8 plumbing leaks ("router", "bridge error", "wired into the live router")
 - 1 hedge opener narrating a tool call
 
-These signals get formatted as diagnose lines and fed into the mutator, so candidates are explicitly pressured to fix what users actually see. Without grounding, evolution would just optimize the synthetic probe set.
+These signals get formatted as diagnose lines and fed into the mutator, so candidates are explicitly pressured to fix observed failure classes. Without grounding, evolution would just optimize the synthetic probe set.
 
 ## Cross-provider voice consistency
 
