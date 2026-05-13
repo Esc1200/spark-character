@@ -1,4 +1,4 @@
-from spark_character.audit_miner import _detect_failures
+from spark_character.audit_miner import AuditFailure, AuditFindings, _detect_failures
 
 
 def _failure_kinds(text: str) -> set[str]:
@@ -28,3 +28,27 @@ def test_does_not_flag_short_scannable_reply_as_dense():
     kinds = _failure_kinds(text)
 
     assert "dense_opening" not in kinds
+
+
+def test_diagnose_lines_do_not_include_reply_preview():
+    findings = AuditFindings(
+        rows_scanned=1,
+        llm_rows=1,
+        failures_by_kind={"dense_opening": 1},
+        failures=[
+            AuditFailure(
+                kind="dense_opening",
+                detail="long single-paragraph preview with few sentence breaks",
+                route="provider_execution",
+                chip="founder-operator",
+                preview="Private reply text should not be copied into diagnose lines.",
+                recorded_at="2026-05-13T00:00:00Z",
+            )
+        ],
+    )
+
+    lines = findings.diagnose_lines()
+
+    assert "Private reply text" not in lines[0]
+    assert "dense_opening" in lines[0]
+    assert "provider_execution" in lines[0]

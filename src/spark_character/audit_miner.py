@@ -1,14 +1,13 @@
-"""Audit miner: read SIB's gateway-outbound.jsonl and surface live failure
-modes from production Telegram conversations.
+"""Audit miner: read SIB's gateway-outbound.jsonl and surface local failure
+modes from Telegram conversations.
 
 The Spark Intelligence Builder writes one JSON line per outbound bot
 reply to logs/gateway-outbound.jsonl in each home directory. Each line
 includes the route, chip, decision, and a 160-char response_preview.
 
 This module reads that log, runs T1 surface-mechanic scoring on the
-preview text, and aggregates the findings so the evolution loop can
-target failures that are actually happening to real users instead of
-just synthetic probe prompts.
+preview text, and aggregates summary findings so the evolution loop can
+target observed failure classes instead of just synthetic probe prompts.
 
 Limitations:
 - The audit log only stores a 160-char preview, not the full reply.
@@ -93,7 +92,7 @@ class AuditFindings:
         return "\n".join(lines)
 
     def diagnose_lines(self, max_per_kind: int = 3) -> list[str]:
-        """Format failures as evolution-ready diagnose lines."""
+        """Format failures as evolution-ready diagnose lines without raw replies."""
         out: list[str] = []
         seen: dict[str, int] = {}
         for f in self.failures:
@@ -101,8 +100,8 @@ class AuditFindings:
             if seen[f.kind] > max_per_kind:
                 continue
             out.append(
-                f"production T1 {f.kind} on route {f.route} chip {f.chip or 'none'}: "
-                f"reply opened {f.preview[:140]!r}"
+                f"observed T1 {f.kind} on route {f.route} "
+                f"chip {f.chip or 'none'}: {f.detail}"
             )
         return out
 

@@ -2,9 +2,9 @@
 
 Watches a Spark Intelligence Builder home for new outbound replies. When
 enough new live replies have accumulated, runs a multi-tier evolution
-cycle seeded from production failures and ships the winner if one beats
-the active baseline. Designed to keep Spark's voice improving from real
-conversations without manual triggers.
+cycle seeded from summarized audit failures and ships the winner if one
+beats the active baseline. Designed to keep Spark's voice improving from
+observed failure classes without manual triggers.
 
 Run continuously (e.g. on a long-running console or as a Windows
 scheduled task pointing at a python -u shim):

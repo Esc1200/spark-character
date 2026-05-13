@@ -242,10 +242,10 @@ def diagnose(scores: dict) -> list[str]:
     out: list[str] = []
     for f in scores.get("failures_t1", [])[:3]:
         out.append(f"T1 mechanics: {f}")
-    for prompt, t2, preview in scores.get("failures_t2", [])[:4]:
+    for prompt, t2, _preview in scores.get("failures_t2", [])[:4]:
         out.append(
             f"T2 distinctiveness only {t2} on prompt {prompt!r}. "
-            f"Reply opened: {preview[:140]!r}. Make it sharper, more decisive, less hedged."
+            "Make the voice sharper, more decisive, less hedged, and more Spark-specific."
         )
     for probe_id, t3 in scores.get("failures_t3", [])[:3]:
         out.append(f"T3 trait probe {probe_id} only {t3}. Strengthen the behavioral cue in the spec.")
@@ -335,9 +335,9 @@ def main() -> int:
         default=None,
         help="Path to a Spark Intelligence Builder home directory. When set, "
         "the audit miner reads its gateway-outbound.jsonl and feeds the most "
-        "frequent production T1 failure patterns into the diagnose step so "
-        "the mutator targets what is actually happening to real users, not "
-        "just synthetic probe failures.",
+        "frequent summarized T1 failure patterns into the diagnose step so "
+        "the mutator targets observed failure classes, not just synthetic "
+        "probe failures.",
     )
     parser.add_argument(
         "--audit-limit",

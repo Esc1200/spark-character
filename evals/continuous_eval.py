@@ -1,7 +1,7 @@
 """Continuous evaluation daemon.
 
 Different from auto_loop. auto_loop fires evolution cycles when
-production failures accumulate. This runs the rubric periodically and
+summarized audit failures accumulate. This runs the rubric periodically and
 logs scores over time, so you can see whether voice quality is
 trending up, holding, or regressing.
 
@@ -319,7 +319,7 @@ def main() -> int:
         "--sib-home",
         default=None,
         help="Path to a Spark Intelligence Builder home. When set, "
-        "each cycle also reports current production T1 failure counts "
+        "each cycle also reports current summarized T1 failure counts "
         "from the audit miner alongside the eval scores.",
     )
     parser.add_argument(
