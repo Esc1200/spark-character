@@ -132,6 +132,30 @@ def test_load_chip_by_id_skips_malformed_yaml_and_finds_valid_chip(tmp_path: Pat
     assert chip.id == "founder-operator"
 
 
+def test_load_chip_by_id_omits_unavailable_desktop_lab_from_default_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    missing_desktop_lab = tmp_path / "Desktop" / "spark-personality-chip-labs" / "personalities"
+    local_lab = tmp_path / "personalities"
+    home_lab = tmp_path / ".spark" / "personalities"
+    monkeypatch.setattr(
+        chip_loader,
+        "DEFAULT_CHIP_LAB_PATHS",
+        (missing_desktop_lab, local_lab, home_lab),
+    )
+
+    assert chip_loader.default_chip_lab_paths() == [local_lab, home_lab]
+
+    with pytest.raises(FileNotFoundError) as excinfo:
+        chip_loader.load_chip_by_id("founder-operator")
+
+    message = str(excinfo.value)
+    assert "spark-personality-chip-labs" not in message
+    assert local_lab.name in message
+    assert home_lab.name in message
+
+
 def test_load_chip_by_id_does_not_swallow_unexpected_loader_errors(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

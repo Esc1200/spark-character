@@ -95,6 +95,16 @@ DEFAULT_CHIP_LAB_PATHS = (
 )
 
 
+def default_chip_lab_paths() -> list[Path]:
+    """Return default chip search paths without unavailable desktop-only labs."""
+    paths: list[Path] = []
+    for path in DEFAULT_CHIP_LAB_PATHS:
+        if "Desktop" in path.parts and not path.exists():
+            continue
+        paths.append(path)
+    return paths
+
+
 TRAIT_FIELDS = (
     "openness",
     "conscientiousness",
@@ -291,7 +301,7 @@ def load_chip_by_id(
     import yaml  # type: ignore
 
     recoverable_load_errors = (OSError, ValueError, yaml.YAMLError)
-    paths = search_paths or list(DEFAULT_CHIP_LAB_PATHS)
+    paths = search_paths or default_chip_lab_paths()
     for base in paths:
         if not base.exists():
             continue
