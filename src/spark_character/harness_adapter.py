@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from typing import Awaitable, Callable
 
 from .critic import CriticSpec, load_critic
-from .persona import PersonaSpec, load_persona
+from .persona import PersonaSpec, detect_provider_kind, load_persona
 from .pipeline import generate_async, generate_with_critique_async
 from .provider import ProviderSpec
 
@@ -48,7 +48,7 @@ def build_run_fn(
     max_tokens: int = 600,
     temperature: float = 0.7,
 ) -> RunFn:
-    p = persona or load_persona()
+    p = persona or load_persona(provider_kind=detect_provider_kind(provider))
     c = critic if (critic is not None or not use_critic) else load_critic()
 
     async def _run(prompt: str) -> HarnessResult:
