@@ -34,6 +34,7 @@ chip is active.
 
 from __future__ import annotations
 
+import logging
 import math
 import os
 from dataclasses import dataclass, field
@@ -41,6 +42,9 @@ from pathlib import Path
 from typing import Any
 
 from .prompt_guard import sanitize_prompt_text
+
+
+logger = logging.getLogger(__name__)
 
 try:  # optional dependency
     from personality_engine.loader import load_personality as _lab_load_personality  # type: ignore
@@ -313,7 +317,8 @@ def load_chip_by_id(
         for entry in base.glob("*.personality.yaml"):
             try:
                 chip = load_chip(entry)
-            except recoverable_load_errors:
+            except recoverable_load_errors as exc:
+                logger.warning("Failed to load personality chip %s: %s", entry.name, exc)
                 continue
             if chip.id == chip_id:
                 return chip

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -121,15 +122,21 @@ def test_rendered_chip_prompt_prioritizes_local_list_references(tmp_path: Path, 
     assert "older memory" in prompt
 
 
-def test_load_chip_by_id_skips_malformed_yaml_and_finds_valid_chip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_chip_by_id_skips_malformed_yaml_and_finds_valid_chip(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     monkeypatch.setattr(chip_loader, "_LAB_AVAILABLE", False)
     monkeypatch.setattr(chip_loader, "_lab_load_personality", None)
     (tmp_path / "broken.personality.yaml").write_text("identity: [", encoding="utf-8")
-    (tmp_path / "founder-operator.personality.yaml").write_text(VALID_CHIP_YAML, encoding="utf-8")
+    (tmp_path / "valid.personality.yaml").write_text(VALID_CHIP_YAML, encoding="utf-8")
 
+    caplog.set_level(logging.WARNING, logger="spark_character.chip_loader")
     chip = chip_loader.load_chip_by_id("founder-operator", search_paths=[tmp_path])
 
     assert chip.id == "founder-operator"
+    assert "Failed to load personality chip broken.personality.yaml" in caplog.text
 
 
 def test_load_chip_by_id_omits_unavailable_desktop_lab_from_default_paths(
